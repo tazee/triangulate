@@ -14,9 +14,9 @@ https://artem-ogre.github.io/CDT/
 - The command version of CDT Traingulation can be launched from "Kits" button on Modo UI at right-up. "poly.cdt" command is mapped at "T" button.
 - The procedural mesh operator version is available on Mesh Operator viewport. That is categorized in Polygon tab.
 
-# Type Option
-- Constrained Delaunay Triangulations: force edges into Delaunay triangulation
-- Conforming Delaunay Triangulations: add new points into Delaunay triangulation until the edge is present in triangulation
+## Type Option
+- **Constrained Delaunay Triangulations**: force edges into Delaunay triangulation
+- **Conforming Delaunay Triangulations**: add new points into Delaunay triangulation until the edge is present in triangulation
 
 ## Building codes
 
@@ -27,9 +27,10 @@ This also requires CDT library. Download and build CDT from below and set the in
 
 ## License
 
+```
 This software is based part on CDT (C++ library for constrained Delaunay triangulation):
 Copyright © 2019 Leica Geosystems Technology AB
 Copyright © The CDT Contributors
 Licensed under the MPL-2.0 license.
 https://github.com/artem-ogre/CDT
-${INSERT_FULL_MPL_2.0_TEXT}
+```
