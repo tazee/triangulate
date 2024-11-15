@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 
+find_package(CDT CONFIG REQUIRED)
 
 project(triangulate VERSION 1.0)
 
@@ -52,9 +53,6 @@ target_compile_features(triangulate
 target_include_directories(triangulate 
     PUBLIC
         ${LXSDK_PATH}/include
-    PRIVATE
-        $<$<PLATFORM_ID:Darwin,Linux>:/usr/local/include>
-        $<$<PLATFORM_ID:Windows>:"C:/Program Files (x86)/CDT/include">
 )
 
 # Set your CDT libraray
@@ -62,8 +60,7 @@ target_link_libraries(triangulate
     PUBLIC
 	    lxsdk
     PRIVATE
-        $<$<PLATFORM_ID:Darwin,Linux>:/usr/local/lib/libCDT.a>
-        $<$<PLATFORM_ID:Windows>:"C:/Program Files (x86)/CDT/lib/CDT.lib">
+        CDT::CDT
 )
 
 # Install plugins and configs into kit directry
@@ -77,6 +74,12 @@ install(
 install(
     DIRECTORY
         "Icons"
+    DESTINATION
+        "."
+)
+install(
+    DIRECTORY
+        "images"
     DESTINATION
         "."
 )
