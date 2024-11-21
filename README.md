@@ -5,14 +5,23 @@ This kit contains a command plugin and a procedural mesh operator for macOS and 
 
 This kit is implemented using CDT libraray.
 
-https://artem-ogre.github.io/CDT/
+https://artem-ogre.github.io/CDT/  
+
+
+<div align="left">
+<img src="./images/love.png" style='max-height: 350px; object-fit: contain'/>
+</div>
+
 
 ## Installing
 - Download lpk from releases. Drag and drop into your Modo viewport. If you're upgrading, delete previous version.
 
 ## How to use the plugins
-- The command version of CDT Traingulation can be launched from "Kits" button on Modo UI at right-up. "poly.cdt" command is mapped at "T" button.
+- The command version of CDT Traingulation can be launched from "Kits" button on Modo UI at right-up. "poly.cdt" command is mapped at "T" button.  
 - The procedural mesh operator version is available on Mesh Operator viewport. That is categorized in Polygon tab.
+<div align="left">
+<img src="./images/kits.png" style='max-height: 220px; object-fit: contain'/>
+</div>
 
 ## Type Option
 - **Constrained Delaunay Triangulations**: force edges into Delaunay triangulation

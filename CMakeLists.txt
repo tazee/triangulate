@@ -67,7 +67,7 @@ target_link_libraries(triangulate
 install(
     FILES
         "index.cfg"
-        "README.md"
+        "index.html"
     DESTINATION
         "."
 )
