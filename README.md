@@ -1,5 +1,5 @@
 # CDT Triangulation for Modo plug-in
-This a Modo Plug-in kit to triangulate polygons using Constraint Delaunay Triangulation algorithm.
+This is a Modo Plug-in kit to triangulate polygons using Constraint Delaunay Triangulation algorithm.
 
 This kit contains a command plugin and a procedural mesh operator for macOS and Windows.
 
