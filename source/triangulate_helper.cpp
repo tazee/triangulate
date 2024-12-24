@@ -8,6 +8,7 @@
 #include <lxsdk/lxu_math.hpp>
 #include <lxsdk/lxu_matrix.hpp>
 #include <lxsdk/lxu_quaternion.hpp>
+#include <lxsdk/lxu_geometry_triangulation.hpp>
 
 #include <CDT.h>
 #include <VerifyTopology.h>
@@ -70,6 +71,7 @@ static void MakeVertexTable(CLxUser_Polygon& polygon, CLxUser_Point& point, std:
 
     unsigned nvert;
     polygon.VertexCount(&nvert);
+    printf("nvert = %u\n", nvert);
     for (auto i = 0u; i < nvert; i++)
     {
         LXtPointID vrt;
@@ -287,28 +289,162 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
 }
 
 //
-// Ear Clipping Triangulation: simple and fast method for simple polygons.
+// Modo default triangulation: simple and fast method for simple polygons
+// using GenerateTriangles () method of CLxUser_Polygon.
 //
-LxResult TriangulateHelper::EarClipping(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
+LxResult TriangulateHelper::ModoTriangulation1(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
 {
-    std::cout << "** EarClipping **" << std::endl;
+    std::cout << "** ModoTriangulation1 **" << std::endl;
 
     LXtID4       type = polygon.Type(&type);
     LXtPolygonID polyID;
     LXtPointID   vert[3];
+    CLxUser_Point point;
+    point.fromMesh(m_mesh);
 
     tris.clear();
 
     // Make new triangle polygons using vertices of source polygon.
-    unsigned count;
-    polygon.GenerateTriangles(&count);
-    std::cout << "EarClipping count = " <<  count << std::endl;
-    for (auto i = 0u; i < count; i++)
+    unsigned nvert;
+    polygon.GenerateTriangles(&nvert);
+    for (auto i = 0u; i < nvert; i++)
     {
         polygon.TriangleByIndex(i, &vert[0], &vert[1], &vert[2]);
         polygon.NewProto(type, vert, 3, 0, &polyID);
         tris.push_back(polyID);
     }
+
+    return LXe_OK;
+}
+
+//
+// Modo default triangulation: simple and fast method for simple polygons
+// using TriangulateFace () method in lxu_geometry_triangulation.hpp.
+//
+LxResult TriangulateHelper::ModoTriangulation2(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
+{
+    std::cout << "** ModoTriangulation2 **" << std::endl;
+
+    LXtID4       type = polygon.Type(&type);
+    LXtPolygonID polyID;
+    LXtPointID   vert[3];
+    CLxUser_Point point;
+    point.fromMesh(m_mesh);
+
+    tris.clear();
+
+    // Make new triangle polygons using vertices of source polygon.
+    std::vector<lx::GeoTriangle> geoTris = lx::TriangulateFace (polygon, point);
+    for (auto i = 0u; i < geoTris.size(); i++)
+    {
+        polygon.VertexByIndex(geoTris[i].v0, &vert[0]);
+        polygon.VertexByIndex(geoTris[i].v1, &vert[1]);
+        polygon.VertexByIndex(geoTris[i].v2, &vert[2]);
+        polygon.NewProto(type, vert, 3, 0, &polyID);
+        tris.push_back(polyID);
+    }
+
+    return LXe_OK;
+}
+
+//
+// Triangulate quadrangles.
+//
+LxResult TriangulateHelper::Quadrangles(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris, int method)
+{
+    std::cout << "** Quadrangles method = " << method << std::endl;
+
+    LXtID4       type = polygon.Type(&type);
+    LXtPolygonID polyID;
+    LXtPointID   A[3], B[3], vert[4];
+    LXtFVector   pos[4];
+    CLxUser_Point point;
+    point.fromMesh(m_mesh);
+
+    tris.clear();
+
+    polygon.VertexByIndex(0, &vert[0]);
+    polygon.VertexByIndex(1, &vert[1]);
+    polygon.VertexByIndex(2, &vert[2]);
+    polygon.VertexByIndex(3, &vert[3]);
+
+    for (auto i = 0u; i < 4; i++)
+    {
+        point.Select(vert[i]);
+        point.Pos(pos[i]);
+    }
+
+    double d1, d2;
+
+    switch (method)
+    {
+    case ShortestDiagonal:
+        d1 = LXx_VDIST(pos[0], pos[2]);
+        d2 = LXx_VDIST(pos[1], pos[3]);
+        if (d1 < d2)
+        {
+            A[0] = vert[0];
+            A[1] = vert[1];
+            A[2] = vert[2];
+            B[0] = vert[0];
+            B[1] = vert[2];
+            B[2] = vert[3];
+        }
+        else
+        {
+            A[0] = vert[0];
+            A[1] = vert[1];
+            A[2] = vert[3];
+            B[0] = vert[1];
+            B[1] = vert[2];
+            B[2] = vert[3];
+        }
+        break;
+    case LongestDiagonal:
+        d1 = LXx_VDIST(pos[0], pos[2]);
+        d2 = LXx_VDIST(pos[1], pos[3]);
+        if (d1 > d2)
+        {
+            A[0] = vert[0];
+            A[1] = vert[1];
+            A[2] = vert[2];
+            B[0] = vert[0];
+            B[1] = vert[2];
+            B[2] = vert[3];
+        }
+        else
+        {
+            A[0] = vert[0];
+            A[1] = vert[1];
+            A[2] = vert[3];
+            B[0] = vert[1];
+            B[1] = vert[2];
+            B[2] = vert[3];
+        }
+        break;
+    case Split_2_4:
+        A[0] = vert[0];
+        A[1] = vert[1];
+        A[2] = vert[3];
+        B[0] = vert[1];
+        B[1] = vert[2];
+        B[2] = vert[3];
+        break;
+    default:
+        A[0] = vert[0];
+        A[1] = vert[1];
+        A[2] = vert[2];
+        B[0] = vert[0];
+        B[1] = vert[2];
+        B[2] = vert[3];
+        break;
+    }
+
+    polygon.NewProto(type, A, 3, 0, &polyID);
+    tris.push_back(polyID);
+
+    polygon.NewProto(type, B, 3, 0, &polyID);
+    tris.push_back(polyID);
 
     return LXe_OK;
 }

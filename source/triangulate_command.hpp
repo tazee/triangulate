@@ -20,7 +20,9 @@ using namespace lx_err;
 #define SRVNAME_COMMAND "poly.cdt"
 
 #define ARGs_COMMAND_TYPE "type"
+#define ARGs_COMMAND_QUAD "quad"
 #define ARGi_COMMAND_TYPE 0
+#define ARGi_COMMAND_QUAD 1
 
 #ifndef LXx_OVERRIDE
 #define LXx_OVERRIDE override
@@ -35,11 +37,23 @@ public:
 
     CCommand()
     {
-        static LXtTextValueHint triangulate_type[] = {
+        static const LXtTextValueHint triangulate_type[] = {
             { ConstraintDelaunay, "constraint" }, { ConformingDelaunay, "conforming" }, { 0, "=triangulate_type" }, 0
         };
+        static const LXtTextValueHint triangulate_quad[] = {
+            { ShortestDiagonal, "shortest" },
+            { LongestDiagonal, "longest" },
+            { Split_1_3, "split1to3" },
+            { Split_2_4, "split2to4" },
+            { 0, "=triangulate_quad" }, { -1, nullptr },
+            { -1, nullptr },
+        };
+
         dyna_Add(ARGs_COMMAND_TYPE, LXsTYPE_INTEGER);
         dyna_SetHint(ARGi_COMMAND_TYPE, triangulate_type);
+
+        dyna_Add(ARGs_COMMAND_QUAD, LXsTYPE_INTEGER);
+        dyna_SetHint(ARGi_COMMAND_QUAD, triangulate_quad);
 
         check(msh_S.ModeCompose("select", NULL, &select_mode));
     }

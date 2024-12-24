@@ -15,6 +15,7 @@ LXxC_MeshOperation_Evaluate(CMeshOp)  // (ILxUnknownID mesh, LXtID4 type, LXtMar
         return LXe_OK;
 
     attr_GetInt(ARGi_MESHOP_TYPE, &vis.m_triType);
+    attr_GetInt(ARGi_MESHOP_QUAD, &vis.m_quad);
 
     vis.triHelp.SetMesh(vis.edit_mesh, vis.base_mesh);
 

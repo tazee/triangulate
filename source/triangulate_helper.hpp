@@ -23,6 +23,14 @@ enum TriangulateType : int
     ConformingDelaunay = 1,
 };
 
+enum QuadMethod : int
+{
+    Split_1_3 = 0,
+    Split_2_4 = 1,
+    ShortestDiagonal = 2,
+    LongestDiagonal = 3,
+};
+
 struct TriangulateHelper
 {
     void SetMesh(CLxUser_Mesh& edit_mesh, CLxUser_Mesh& base_mesh)
@@ -44,9 +52,21 @@ struct TriangulateHelper
     LxResult ConformingDelaunay(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris);
 
     //
-    // Ear Clipping Triangulation: simple and fast method for simple polygons.
+    // Modo default triangulation: simple and fast method for simple polygons
+    // using GenerateTriangles () method of CLxUser_Polygon.
     //
-    LxResult EarClipping(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris);
+    LxResult ModoTriangulation1(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris);
+
+    //
+    // Modo default triangulation: simple and fast method for simple polygons
+    // using TriangulateFace () method in lxu_geometry_triangulation.hpp.
+    //
+    LxResult ModoTriangulation2(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris);
+
+    //
+    // Triangulate quadrangles.
+    //
+    LxResult Quadrangles(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris, int method = ShortestDiagonal);
 
     CLxUser_Mesh        m_mesh;
     CLxUser_PolygonEdit m_poledit;
@@ -184,6 +204,7 @@ public:
     CLxUser_LogService s_log;
     TriangulateHelper  triHelp;
     int                m_triType;
+    int                m_quad;
     bool               succeeded;
 
     CVisitor()
@@ -191,7 +212,7 @@ public:
         succeeded = true;
     }
 
-    bool IsTwisted()
+    bool IsValid()
     {
         using namespace boost::geometry;
         typedef model::d2::point_xy<double> Point;
@@ -245,8 +266,11 @@ public:
                 break;
             }
         }
-        s_log.DebugOut(LXi_DBLOG_NORMAL, "IsTwisted converx = %d", convex);
         if (convex)
+            return true;
+
+        // Concave quad polygon should be triangulated by Quadrangles method.
+        if (nvert == 4)
             return false;
         
         // Check the polygon is twisted or not by checking the intersection
@@ -266,11 +290,11 @@ public:
                 if (intersects(s1, s2))
                 {
                     s_log.DebugOut(LXi_DBLOG_NORMAL, "polygon ID %p is twisted", m_poly.ID());
-                    return true;
+                    return false;
                 }
             }
         }
-        return false;
+        return true;
     }
 
     LxResult Evaluate()
@@ -289,8 +313,13 @@ public:
         std::vector<LXtPolygonID> tris;
         LxResult result;
     
-        if (IsTwisted())
-            result = triHelp.EarClipping(m_poly, tris);
+        // the polygon is valid or not.
+        bool is_valid = IsValid();
+    
+        if ((nvert == 4) && is_valid)
+            result = triHelp.Quadrangles(m_poly, tris, m_quad);
+        else if (!is_valid)
+            result = triHelp.ModoTriangulation2(m_poly, tris);
         else if (m_triType == ConstraintDelaunay)
             result = triHelp.ConstraintDelaunay(m_poly, tris);
         else if (m_triType == ConformingDelaunay)

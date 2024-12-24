@@ -27,12 +27,21 @@ https://artem-ogre.github.io/CDT/
 - **Constrained Delaunay Triangulations**: force edges into Delaunay triangulation
 - **Conforming Delaunay Triangulations**: add new points into Delaunay triangulation until the edge is present in triangulation
 
-## Building codes
+## Quad Rule
+Quad Rule specifies how to split convex quad polygons.
+- **Split 1 to 3**: Split the quads on their 1st and 3rd vertices
+- **Split 2 to 4**: Split the quads on their 2nd and 4th vertices
+- **Shortest Diagonal**: Split the quads along their shortest diagonal
+- **Longest Diagonal**: Split the quads along their longest diagonal
 
-- LXSDK
+## Dependencies
+
+- LXSDK  
 This kit requires Modo SDK (Modo 16.1v8 or later). Download and build LXSDK and set you LXSDK path to LXSDK_PATH in CMakeLists.txt in triagulate.
-- CDT library.
+- CDT library 1.4.0 (https://github.com/artem-ogre/CDT)  
 This also requires CDT library. Download and build CDT from below and set the include and library path to CMakeLists.txt in triagulate.
+- Boost 1.87.0 (https://www.boost.org/)
+
 
 ## License
 

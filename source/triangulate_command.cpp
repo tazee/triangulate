@@ -10,6 +10,7 @@ void CCommand::basic_Execute(unsigned int /*flags*/)
     unsigned          n;
 
     attr_GetInt(ARGi_COMMAND_TYPE, &vis.m_triType);
+    attr_GetInt(ARGi_COMMAND_QUAD, &vis.m_quad);
 
     check(lyr_S.BeginScan(LXf_LAYERSCAN_EDIT_POLYS, scan));
     check(scan.Count(&n));
