@@ -170,7 +170,7 @@ vertical-align: middle;
 <body>
 <h1 id="cdt-triangulation-for-modo-plug-in">CDT Triangulation for Modo
 plug-in</h1>
-<p>This a Modo Plug-in kit to triangulate polygons using Constraint
+<p>This is a Modo Plug-in kit to triangulate polygons using Constraint
 Delaunay Triangulation algorithm.</p>
 <p>This kit contains a command plugin and a procedural mesh operator for
 macOS and Windows.</p>
@@ -204,14 +204,29 @@ into Delaunay triangulation</li>
 into Delaunay triangulation until the edge is present in
 triangulation</li>
 </ul>
-<h2 id="building-codes">Building codes</h2>
+<h2 id="quad-rule">Quad Rule</h2>
 <ul>
-<li>LXSDK This kit requires Modo SDK (Modo 16.1v8 or later). Download
-and build LXSDK and set you LXSDK path to LXSDK_PATH in CMakeLists.txt
-in triagulate.</li>
-<li>CDT library. This also requires CDT library. Download and build CDT
-from below and set the include and library path to CMakeLists.txt in
+<li>Quad Rule specifies how to split convex quad polygons.<br />
+</li>
+<li><strong>Split 1 to 3</strong>: Split the quads on their 1st and 3rd
+vertices</li>
+<li><strong>Split 2 to 4</strong>: Split the quads on their 2nd and 4th
+vertices</li>
+<li><strong>Shortest Diagonal</strong>: Split the quads along their
+shortest diagonal</li>
+<li><strong>Longest Diagonal</strong>: Split the quads along their
+longest diagonal</li>
+</ul>
+<h2 id="dependencies">Dependencies</h2>
+<ul>
+<li>LXSDK<br />
+This kit requires Modo SDK (Modo 16.1v8 or later). Download and build
+LXSDK and set you LXSDK path to LXSDK_PATH in CMakeLists.txt in
 triagulate.</li>
+<li>CDT library 1.4.0 (https://github.com/artem-ogre/CDT)<br />
+This also requires CDT library. Download and build CDT from below and
+set the include and library path to CMakeLists.txt in triagulate.</li>
+<li>Boost 1.87.0 (https://www.boost.org/)</li>
 </ul>
 <h2 id="license">License</h2>
 <pre><code>This software is based part on CDT (C++ library for constrained Delaunay triangulation):

@@ -28,7 +28,7 @@ https://artem-ogre.github.io/CDT/
 - **Conforming Delaunay Triangulations**: add new points into Delaunay triangulation until the edge is present in triangulation
 
 ## Quad Rule
-Quad Rule specifies how to split convex quad polygons.
+- Quad Rule specifies how to split convex quad polygons.  
 - **Split 1 to 3**: Split the quads on their 1st and 3rd vertices
 - **Split 2 to 4**: Split the quads on their 2nd and 4th vertices
 - **Shortest Diagonal**: Split the quads along their shortest diagonal
