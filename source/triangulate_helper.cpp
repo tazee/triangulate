@@ -1,5 +1,5 @@
 //
-// Triangulation helper class to wrap CDT library.
+// Triangulation helper class to wrap CGAL Traingulation library.
 //
 #include "lxsdk/lxresult.h"
 #include "lxsdk/lxvmath.h"
@@ -10,11 +10,18 @@
 #include <lxsdk/lxu_quaternion.hpp>
 #include <lxsdk/lxu_geometry_triangulation.hpp>
 
-#include <CDT.h>
-#include <VerifyTopology.h>
 #include <vector>
 #include <map>
 #include <iostream>
+
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Constrained_Delaunay_triangulation_2.h>
+#include <CGAL/Delaunay_mesher_2.h>
+#include <CGAL/Delaunay_mesh_face_base_2.h>
+#include <CGAL/Delaunay_mesh_vertex_base_2.h>
+#include <CGAL/Delaunay_mesh_size_criteria_2.h>
+
+#include <CGAL/mark_domain_in_triangulation.h>
 
 #include "triangulate_helper.hpp"
 
@@ -104,6 +111,18 @@ static void MakeVertexTable(CLxUser_Polygon& polygon, CLxUser_Point& point, std:
 //
 // Constrained Delaunay Triangulations: force edges into Delaunay triangulation
 //
+typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
+typedef CGAL::Triangulation_vertex_base_2<K> Vb;
+typedef CGAL::Delaunay_mesh_face_base_2<K> Fb;
+typedef CGAL::Triangulation_data_structure_2<Vb, Fb> Tds;
+typedef CGAL::Constrained_Delaunay_triangulation_2<K, Tds> CDT;
+typedef CGAL::Delaunay_mesh_size_criteria_2<CDT> Criteria;
+typedef CGAL::Delaunay_mesher_2<CDT, Criteria> Mesher;
+
+typedef CDT::Vertex_handle Vertex_handle;
+typedef CDT::Face_handle Face_handle;
+typedef CDT::Point CPoint;
+
 LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
 {
     std::cout << "** ConstraintDelaunay **" << std::endl;
@@ -111,34 +130,35 @@ LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::ve
     point.fromMesh(m_mesh);
     point1.fromMesh(m_mesh);
 
-    double tol = PolygonTolerance(polygon, point);
-
     LXtVector norm;
     polygon.Normal(norm);
 
-    CDT::Triangulation cdt =
-    CDT::Triangulation<double>(CDT::VertexInsertionOrder::Enum::Auto, CDT::IntersectingConstraintEdges::Enum::TryResolve, tol);
+    CDT cdt;
 
-    std::vector<CDT::V2d<double>> points;
-    std::vector<CDT::Edge>        edges;
+    std::vector<Vertex_handle> vertex_handles;
 
     // Set axis plane to compute the triangulation on 2D space.
     AxisPlane axisPlane(norm);
 
-    std::vector<LXtPointID> vertices;
+    std::vector<LXtPointID> source;
     std::unordered_map<LXtPointID,unsigned> indices;
 
-    MakeVertexTable(polygon, point, vertices, indices);
+    MakeVertexTable(polygon, point, source, indices);
 
-    for (auto i = 0u; i < vertices.size(); i++)
+    double   z_ave = 0.0;
+    for (auto i = 0u; i < source.size(); i++)
     {
-        point.Select(vertices[i]);
+        point.Select(source[i]);
         LXtFVector pos;
         point.Pos(pos);
         double x, y, z;
         axisPlane.ToPlane(pos, x, y, z);
-        points.push_back(CDT::V2d<double>::make(x, y));
+        vertex_handles.push_back(cdt.insert(CPoint(x, y)));
+        z_ave += z;
     }
+
+    // averaged z value on axis plane
+    z_ave /= static_cast<double>(source.size());
 
     // Set vertex projected positions and edge links.
     unsigned nvert;
@@ -154,30 +174,54 @@ LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::ve
         {
             continue;
         }
-        CDT::VertInd v1 = indices[vrt];
-        CDT::VertInd v2 = indices[vrt1];
-        edges.push_back(CDT::Edge(v1, v2));
+        int v1 = indices[vrt];
+        int v2 = indices[vrt1];
+        cdt.insert_constraint(vertex_handles[v1], vertex_handles[v2]);
     }
 
-    // Compute constrained delaunay triangulations
-    cdt.insertVertices(points);
-    cdt.insertEdges(edges);
-    cdt.eraseOuterTrianglesAndHoles();
-    if (CDT::verifyTopology(cdt) == false)
+    if (!cdt.is_valid())
+    {
+        s_log.DebugOut(LXi_DBLOG_ERROR, "Invalid CDT context");
         return LXe_FAILED;
+    }
+    
+    std::unordered_map<Face_handle, bool> in_domain_map;
+    boost::associative_property_map< std::unordered_map<Face_handle,bool> > in_domain(in_domain_map);
+ 
+    // Mark facets that are inside the domain bounded by the polygon
+    CGAL::mark_domain_in_triangulation(cdt, in_domain);
 
     LXtID4       type = polygon.Type(&type);
     LXtPolygonID polyID;
     LXtPointID   vert[3];
 
     tris.clear();
+    std::cout << "vertices (" <<  cdt.number_of_vertices() << ") triangles (" << cdt.number_of_faces() << ")" << std::endl;
 
-    // Make new triangle polygons using vertices of source polygon.
-    for (auto i = 0u; i < cdt.triangles.size(); i++)
+    // Make a map to get index from vertex handle.
+    std::unordered_map<Vertex_handle,int> vertex_to_index;
+    int index = 0;
+    for (auto vertex = cdt.finite_vertices_begin(); vertex != cdt.finite_vertices_end(); vertex++)
     {
-        vert[0] = vertices[cdt.triangles[i].vertices[0]];
-        vert[1] = vertices[cdt.triangles[i].vertices[1]];
-        vert[2] = vertices[cdt.triangles[i].vertices[2]];
+        vertex_to_index[vertex] = index++;
+    }
+    assert(static_cast<size_t>(index) == source.size());
+
+    // Make triangle face polygons into the edit mesh.
+    for (auto face = cdt.finite_faces_begin(); face != cdt.finite_faces_end(); face++)
+    {
+        // Skip if the face is not in domain.
+        if (!get(in_domain,face))
+            continue;
+
+        // Get three vertices of the triangle
+        for (auto i = 0; i < 3; i++)
+        {
+            Vertex_handle vh = face->vertex(i);
+            index = vertex_to_index[vh];
+            vert[i] = source[index];
+        }
+        // Make a new triangle polygon
         polygon.NewProto(type, vert, 3, 0, &polyID);
         tris.push_back(polyID);
     }
@@ -196,39 +240,35 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
     point.fromMesh(m_mesh);
     point1.fromMesh(m_mesh);
 
-    double tol = PolygonTolerance(polygon, point);
-
     LXtVector norm;
     polygon.Normal(norm);
 
-    CDT::Triangulation cdt =
-    CDT::Triangulation<double>(CDT::VertexInsertionOrder::Enum::Auto, CDT::IntersectingConstraintEdges::Enum::TryResolve, tol);
+    CDT cdt;
 
-    std::vector<CDT::V2d<double>> points;
-    std::vector<CDT::Edge>        edges;
+    std::vector<Vertex_handle> vertex_handles;
 
     // Set axis plane to compute the triangulation on 2D space.
     AxisPlane axisPlane(norm);
 
-    std::vector<LXtPointID> vertices;
+    std::vector<LXtPointID> source;
     std::unordered_map<LXtPointID,unsigned> indices;
 
-    MakeVertexTable(polygon, point, vertices, indices);
+    MakeVertexTable(polygon, point, source, indices);
 
     double   z_ave = 0.0;
-    for (auto i = 0u; i < vertices.size(); i++)
+    for (auto i = 0u; i < source.size(); i++)
     {
-        point.Select(vertices[i]);
+        point.Select(source[i]);
         LXtFVector pos;
         point.Pos(pos);
         double x, y, z;
         axisPlane.ToPlane(pos, x, y, z);
-        points.push_back(CDT::V2d<double>::make(x, y));
+        vertex_handles.push_back(cdt.insert(CPoint(x, y)));
         z_ave += z;
     }
 
     // averaged z value on axis plane
-    z_ave /= static_cast<double>(vertices.size());
+    z_ave /= static_cast<double>(source.size());
 
     // Set vertex projected positions and edge links.
     unsigned nvert;
@@ -244,43 +284,76 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
         {
             continue;
         }
-        CDT::VertInd v1 = indices[vrt];
-        CDT::VertInd v2 = indices[vrt1];
-        edges.push_back(CDT::Edge(v1, v2));
+        int v1 = indices[vrt];
+        int v2 = indices[vrt1];
+        cdt.insert_constraint(vertex_handles[v1], vertex_handles[v2]);
     }
 
-    // Compute conforming delaunay triangulations
-    cdt.insertVertices(points);
-    cdt.conformToEdges(edges);
-    cdt.eraseOuterTrianglesAndHoles();
-    if (CDT::verifyTopology(cdt) == false)
-        return LXe_FAILED;
+    // 
+    //  angle_min = std::asin (std::sqrt(B));
+    //
+    //  B = std::sin (angle_min);
+    //  B = B * B;
+    //
+    Mesher mesher(cdt);
+    double B = std::sin (m_angle_min);
+    mesher.set_criteria(Criteria(B * B, m_edge_size));
+
+    // Generate triangles
+    mesher.refine_mesh();
+    
+    std::unordered_map<Face_handle, bool> in_domain_map;
+    boost::associative_property_map< std::unordered_map<Face_handle,bool> > in_domain(in_domain_map);
+ 
+    // Mark facets that are inside the domain bounded by the polygon
+    CGAL::mark_domain_in_triangulation(cdt, in_domain);
 
     LXtID4       type = polygon.Type(&type);
     LXtPolygonID polyID;
     LXtPointID   vert[3];
 
     tris.clear();
-    std::cout << "vertices (" <<  cdt.vertices.size() << ") triangles (" << cdt.triangles.size() << ")" << std::endl;
+    std::cout << "vertices (" <<  cdt.number_of_vertices() << ") triangles (" << cdt.number_of_faces() << ")" << std::endl;
     m_poledit.SetSearchPolygon(polygon.ID(), true);
 
-    // Make new additional vertices
-    for (auto i = vertices.size(); i < cdt.vertices.size(); i++)
+    // Make new additional vertices. 
+    std::vector<LXtPointID> vertices;
+    std::unordered_map<Vertex_handle,int> vertex_to_index;
+    int index = 0;
+    for (auto vertex = cdt.finite_vertices_begin(); vertex != cdt.finite_vertices_end(); vertex++)
     {
-        LXtPointID              vrt;
-        LXtVector               pos;
-        const CDT::V2d<double>& v = cdt.vertices[i];
-        axisPlane.FromPlane(pos, v.x, v.y, z_ave);
+        // Make a map to get index from vertex handle.
+        vertex_to_index[vertex] = index++;
+        // Use the original vertex if it is not new vertex.
+        if (index <= source.size())
+        {
+            vertices.push_back(source[index - 1]);
+            continue;
+        }
+        LXtPointID vrt;
+        LXtVector  pos;
+        auto& p = vertex->point();
+        axisPlane.FromPlane(pos, p.x(), p.y(), z_ave);
+        // This interpolates vertex map values at the new position on the source polygon.
         m_poledit.AddFaceVertex(pos, polygon.ID(), nullptr, &vrt);
         vertices.push_back(vrt);
     }
 
-    // Make new triangle polygons using vertices of source polygon and new vertices.
-    for (auto i = 0u; i < cdt.triangles.size(); i++)
+    // Make triangle face polygons into the edit mesh.
+    for (auto face = cdt.finite_faces_begin(); face != cdt.finite_faces_end(); face++)
     {
-        vert[0] = vertices[cdt.triangles[i].vertices[0]];
-        vert[1] = vertices[cdt.triangles[i].vertices[1]];
-        vert[2] = vertices[cdt.triangles[i].vertices[2]];
+        // Skip if the face is not in domain.
+        if (!get(in_domain,face))
+            continue;
+
+        // Get three vertices of the triangle
+        for (auto i = 0; i < 3; i++)
+        {
+            Vertex_handle vh = face->vertex(i);
+            index = vertex_to_index[vh];
+            vert[i] = vertices[index];
+        }
+        // Make a new triangle polygon
         polygon.NewProto(type, vert, 3, 0, &polyID);
         tris.push_back(polyID);
     }
@@ -448,4 +521,3 @@ LxResult TriangulateHelper::Quadrangles(CLxUser_Polygon& polygon, std::vector<LX
 
     return LXe_OK;
 }
-

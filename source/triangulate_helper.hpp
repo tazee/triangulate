@@ -16,6 +16,7 @@
 #include <boost/geometry/geometries/segment.hpp>
 
 #include <vector>
+#include <unordered_set>
 
 enum TriangulateType : int
 {
@@ -31,8 +32,19 @@ enum QuadMethod : int
     LongestDiagonal = 3,
 };
 
+enum MinimumEdgeSize : int
+{
+    ByRatio = 0,
+    ByLength = 1,
+};
+
 struct TriangulateHelper
 {
+    TriangulateHelper()
+    {
+        m_angle_min = 20.7 * LXx_DEG2RAD;
+        m_edge_size = 0.5;
+    }
     void SetMesh(CLxUser_Mesh& edit_mesh, CLxUser_Mesh& base_mesh)
     {
         m_mesh.set(edit_mesh);
@@ -72,6 +84,9 @@ struct TriangulateHelper
     CLxUser_PolygonEdit m_poledit;
     CLxUser_LogService  s_log;
     CLxUser_MeshService s_mesh;
+
+    double m_angle_min;     // Minimum angle of triangle
+    double m_edge_size;     // Maximum edge length of triangle
 };
 
 
@@ -205,7 +220,13 @@ public:
     TriangulateHelper  triHelp;
     int                m_triType;
     int                m_quad;
+    int                m_edge;  // edge size
+    double             m_edge_scale;   // edge related scale
+    double             m_edge_size;    // edge maximum size
+    double             m_angle;        // angle
     bool               succeeded;
+
+    std::vector<LXtPolygonID> tris;     // result triangles
 
     CVisitor()
     {
@@ -310,20 +331,29 @@ public:
         if ((type != LXiPTYP_FACE) && (type != LXiPTYP_PSUB) && (type != LXiPTYP_SUBD))
             return LXe_OK;
 
-        std::vector<LXtPolygonID> tris;
         LxResult result;
     
         // the polygon is valid or not.
         bool is_valid = IsValid();
     
-        if ((nvert == 4) && is_valid)
-            result = triHelp.Quadrangles(m_poly, tris, m_quad);
-        else if (!is_valid)
+        triHelp.m_angle_min = m_angle;
+        if (m_edge == MinimumEdgeSize::ByRatio)
+        {
+            double area;
+            m_poly.Area(&area);
+            triHelp.m_edge_size = m_edge_scale * std::sqrt(area);
+        }
+        else
+            triHelp.m_edge_size = m_edge_size;
+    
+        if (!is_valid)
             result = triHelp.ModoTriangulation2(m_poly, tris);
-        else if (m_triType == ConstraintDelaunay)
-            result = triHelp.ConstraintDelaunay(m_poly, tris);
         else if (m_triType == ConformingDelaunay)
             result = triHelp.ConformingDelaunay(m_poly, tris);
+        else if ((nvert == 4) && is_valid)
+            result = triHelp.Quadrangles(m_poly, tris, m_quad);
+        else if (m_triType == ConstraintDelaunay)
+            result = triHelp.ConstraintDelaunay(m_poly, tris);
         
         // check the result
         if (result == LXe_OK)

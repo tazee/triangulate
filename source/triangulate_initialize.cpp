@@ -1,8 +1,8 @@
 #include "triangulate_command.hpp"
-#include "triangulate_meshop.hpp"
+#include "triangulate_tool.hpp"
 
 void initialize()
 {
     CCommand::initialize();
-    CMeshOp::initialize();
+    CTool::initialize();
 }
