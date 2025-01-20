@@ -96,7 +96,7 @@ target_include_directories(triangulate
         ${CGAL_INCLUDE_DIRS}
 )
 
-set_target_properties(triangulate PROPERTIES LINK_SEARCH_START_STATIC TRUE)
+#set_target_properties(triangulate PROPERTIES LINK_SEARCH_START_STATIC TRUE)
 
 # Set your CGAL libraray 
 target_link_libraries(triangulate
