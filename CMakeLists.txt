@@ -4,14 +4,17 @@ project(triangulate VERSION 1.0)
 include(FetchContent)
 
 #set(LXSDK_PATH "../LXSDK-000025")
-#set(CGAL_DIR "../CGAL-6.0.1")
+set(CGAL_DIR "../CGAL-6.0.1")
 
 # Set your Boost path
 set(Boost_INCLUDE_DIR "../boost_1_87_0")
 
 # Set your GMP and MPFR libraries path
-set(GMP_LIBRARIES /usr/local/opt/gmp/lib/libgmp.a /usr/local/opt/gmp/lib/libgmpxx.a)
-set(MPFR_LIBRARIES /usr/local/opt/mpfr/lib/libmpfr.a)
+set(LOCAL_LIB_DIR /usr/local/opt)
+set(GMP_INCLUDE_DIR "${LOCAL_LIB_DIR}/gmp/include")
+set(MPFR_INCLUDE_DIR "${LOCAL_LIB_DIR}/mpfr/include")
+set(GMP_LIBRARIES ${LOCAL_LIB_DIR}/gmp/lib/libgmp.a ${LOCAL_LIB_DIR}/gmp/lib/libgmpxx.a)
+set(MPFR_LIBRARIES ${LOCAL_LIB_DIR}/mpfr/lib/libmpfr.a)
 
 if (NOT LXSDK_PATH)
     FetchContent_Declare( 
@@ -75,7 +78,6 @@ add_library(triangulate
     SHARED
         "source/triangulate_initialize.cpp"
         "source/triangulate_command.cpp"
-        "source/triangulate_meshop.cpp"
         "source/triangulate_helper.cpp"
         "source/triangulate_tool.cpp"
 )
@@ -94,7 +96,9 @@ target_include_directories(triangulate
         ${CGAL_INCLUDE_DIRS}
 )
 
-# Set your CGAL libraray
+set_target_properties(triangulate PROPERTIES LINK_SEARCH_START_STATIC TRUE)
+
+# Set your CGAL libraray 
 target_link_libraries(triangulate
     PUBLIC
 	    lxsdk
