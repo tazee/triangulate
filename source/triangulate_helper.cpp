@@ -25,88 +25,6 @@
 
 #include "triangulate_helper.hpp"
 
-//
-// Get maximum tolerance of the given polygon.
-//
-static double PolygonTolerance(CLxUser_Polygon& polygon, CLxUser_Point& point)
-{
-    double m = 0.0;
-
-    unsigned nvert;
-    polygon.VertexCount(&nvert);
-    for (auto i = 0u; i < nvert; i++)
-    {
-        LXtPointID vrt;
-        LXtFVector pos;
-        polygon.VertexByIndex(i, &vrt);
-        point.Select(vrt);
-        point.Pos(pos);
-        for (auto j = 0u; j < LXdND; j++)
-        {
-            double z = std::abs(pos[j]);
-            if (z > m)
-                m = z;
-        }
-    }
-    return lx::Tolerance(m);
-}
-
-//
-// Return true if the vertex pair is appeared twice.
-//
-static bool IsKeyholeBridge(CLxUser_Point& point, CLxUser_Point& point1)
-{
-    CLxUser_MeshService s_mesh;
-    LXtMarkMode mark_dupl = s_mesh.SetMode(LXsMARK_USER_0);
-
-    if (point.TestMarks(mark_dupl) == LXe_FALSE)
-        return false;
-    if (point1.TestMarks(mark_dupl) == LXe_FALSE)
-        return false;
-    return true;
-}
-
-//
-// Make vertex index table of polygon.
-//
-static void MakeVertexTable(CLxUser_Polygon& polygon, CLxUser_Point& point, std::vector<LXtPointID>& vertices, std::unordered_map<LXtPointID,unsigned>& indices)
-{
-    CLxUser_MeshService s_mesh;
-
-    LXtMarkMode mark_dupl;
-    mark_dupl = s_mesh.ClearMode(LXsMARK_USER_0);
-
-    unsigned nvert;
-    polygon.VertexCount(&nvert);
-    printf("nvert = %u\n", nvert);
-    for (auto i = 0u; i < nvert; i++)
-    {
-        LXtPointID vrt;
-        polygon.VertexByIndex(i, &vrt);
-        point.Select(vrt);
-        point.SetMarks(mark_dupl);
-    }
-
-    mark_dupl = s_mesh.SetMode(LXsMARK_USER_0);
-
-    unsigned n = 0;
-    polygon.VertexCount(&nvert);
-    for (auto i = 0u; i < nvert; i++)
-    {
-        LXtPointID vrt;
-        polygon.VertexByIndex(i, &vrt);
-        if (indices.find(vrt) == indices.end())
-        {
-            indices.insert(std::make_pair(vrt, n ++));
-            vertices.push_back(vrt);
-        }
-        else
-        {
-            point.Select(vrt);
-            point.SetMarks(mark_dupl);
-        }
-    }
-}
 
 //
 // Constrained Delaunay Triangulations: force edges into Delaunay triangulation
@@ -143,7 +61,7 @@ LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::ve
     std::vector<LXtPointID> source;
     std::unordered_map<LXtPointID,unsigned> indices;
 
-    MakeVertexTable(polygon, point, source, indices);
+    MeshUtil::MakeVertexTable(polygon, point, source, indices);
 
     double   z_ave = 0.0;
     for (auto i = 0u; i < source.size(); i++)
@@ -170,7 +88,7 @@ LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::ve
         polygon.VertexByIndex((i + 1) % nvert, &vrt1);
         point.Select(vrt);
         point1.Select(vrt1);
-        if (IsKeyholeBridge(point, point1))
+        if (MeshUtil::IsKeyholeBridge(point, point1))
         {
             continue;
         }
@@ -253,7 +171,7 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
     std::vector<LXtPointID> source;
     std::unordered_map<LXtPointID,unsigned> indices;
 
-    MakeVertexTable(polygon, point, source, indices);
+    MeshUtil::MakeVertexTable(polygon, point, source, indices);
 
     double   z_ave = 0.0;
     for (auto i = 0u; i < source.size(); i++)
@@ -280,7 +198,7 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
         polygon.VertexByIndex((i + 1) % nvert, &vrt1);
         point.Select(vrt);
         point1.Select(vrt1);
-        if (IsKeyholeBridge(point, point1))
+        if (MeshUtil::IsKeyholeBridge(point, point1))
         {
             continue;
         }
@@ -316,6 +234,9 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
     std::cout << "vertices (" <<  cdt.number_of_vertices() << ") triangles (" << cdt.number_of_faces() << ")" << std::endl;
     m_poledit.SetSearchPolygon(polygon.ID(), true);
 
+    AxisTriangles axisTriangles(m_mesh, polygon);
+    std::vector<double> weights;
+
     // Make new additional vertices. 
     std::vector<LXtPointID> vertices;
     std::unordered_map<Vertex_handle,int> vertex_to_index;
@@ -335,7 +256,8 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
         auto& p = vertex->point();
         axisPlane.FromPlane(pos, p.x(), p.y(), z_ave);
         // This interpolates vertex map values at the new position on the source polygon.
-        m_poledit.AddFaceVertex(pos, polygon.ID(), nullptr, &vrt);
+        axisTriangles.MakePositionWeights(pos, weights);
+        m_poledit.AddFaceVertex(pos, polygon.ID(), weights.data(), &vrt);
         vertices.push_back(vrt);
     }
 
