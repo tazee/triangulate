@@ -53,6 +53,7 @@ struct TriangulateHelper
         s_mesh.CreatePolygonEdit(m_poledit);
         m_poledit.SetMesh(edit_mesh, base_mesh);
     }
+    void CopyDiscoValues(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris);
 
     //
     // Constrained Delaunay Triangulations: force edges into Delaunay
@@ -236,6 +237,8 @@ public:
             result = triHelp.Quadrangles(m_poly, tris, m_quad);
         else if (m_triType == ConstraintDelaunay)
             result = triHelp.ConstraintDelaunay(m_poly, tris);
+            
+        triHelp.CopyDiscoValues(m_poly, tris);
         
         // check the result
         if (result == LXe_OK)

@@ -443,3 +443,69 @@ LxResult TriangulateHelper::Quadrangles(CLxUser_Polygon& polygon, std::vector<LX
 
     return LXe_OK;
 }
+
+class DiscoMapVisitor : public CLxImpl_AbstractVisitor
+{
+public:
+    CLxUser_MeshMap            m_maps;
+    std::vector<LXtMeshMapID>& m_disco_maps;
+
+    DiscoMapVisitor(CLxUser_Mesh& mesh, std::vector<LXtMeshMapID>& disco_maps) : m_disco_maps(disco_maps)
+    {
+        mesh.GetMaps(m_maps);
+        m_disco_maps.clear();
+    }
+
+    LxResult Evaluate() override
+    {
+        if ((m_maps.IsContinuous() == LXe_FALSE) && (m_maps.IsEdgeMap() == LXe_FALSE))
+        {
+            m_disco_maps.push_back(m_maps.ID());
+        }
+        return LXe_OK;
+    }
+};
+
+void TriangulateHelper::CopyDiscoValues(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
+{
+    std::vector<LXtMeshMapID> disco_maps;
+    DiscoMapVisitor visMap(m_mesh, disco_maps);
+    visMap.m_maps.Enum(&visMap);
+
+    CLxUser_Polygon triangle;
+    triangle.fromMesh(m_mesh);
+
+    for (auto map : disco_maps)
+    {
+        unsigned dim;
+        visMap.m_maps.Select(map);
+        visMap.m_maps.Dimension(&dim);
+        auto nvert = 0u, nvert1 = 0u;
+        polygon.VertexCount(&nvert);
+        float* value = new float[dim];
+        for (auto i = 0u; i < nvert; i++)
+        {
+            LXtPointID vrt;
+            polygon.VertexByIndex(i, &vrt);
+            if (polygon.MapValue(map, vrt, value) == LXe_FALSE)
+            {
+                continue;
+            }
+            for (auto tri : tris)
+            {
+                triangle.Select(tri);
+                triangle.VertexCount(&nvert1);
+                for (auto j = 0u; j < nvert1; j++)
+                {
+                    LXtPointID vrt1;
+                    triangle.VertexByIndex(j, &vrt1);
+                    if (vrt1 == vrt)
+                    {
+                        triangle.SetMapValue(vrt1, map, value);
+                    }
+                }
+            }
+        }
+        delete[] value;
+    }
+}
