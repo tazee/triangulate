@@ -124,6 +124,7 @@ struct AxisPlane
         m_ix   = axis0[m_axis];
         m_iy   = axis1[m_axis];
 
+        printf("AxisPlane vec %f %f %f axis %u %u %u\n", vec[0], vec[1], vec[2], m_axis, m_ix, m_iy);
         LXtVector norm;
         LXx_VUNIT(norm, m_axis);
         lx::MatrixIdent(m_m);
@@ -133,6 +134,8 @@ struct AxisPlane
         }
         lx::MatrixCopy(m_mInv, m_m);
         lx::MatrixTranspose(m_mInv);
+        printf("matrix %f %f %f %f %f %f %f %f %f\n",
+            m_m[0][0], m_m[0][1], m_m[0][2], m_m[1][0], m_m[1][1], m_m[1][2],m_m[2][0], m_m[2][1], m_m[2][2]);
     }
 
     void ToPlane(const LXtVector pos, double& x, double& y, double& z)
@@ -602,5 +605,110 @@ static bool PolygonIsOpened (CLxUser_Mesh& mesh, CLxUser_Polygon& polygon)
     return true;
 }
 
+static bool PolygonMedianCenter (CLxUser_Mesh& mesh, CLxUser_Polygon& polygon, LXtVector center)
+{
+    unsigned nvert;
+
+    LXx_VCLR(center);
+    CLxUser_Point point;
+    point.fromMesh(mesh);
+
+    polygon.VertexCount(&nvert);
+    for (auto i = 0u; i < nvert; i++)
+    {
+        LXtPointID vrt;
+        polygon.VertexByIndex(i, &vrt);
+        point.Select(vrt);
+        LXtFVector pos;
+        point.Pos(pos);
+        LXx_VADD(center, pos);
+    }
+
+    if (nvert > 0)
+    {
+        double scale = 1.0 / static_cast<double>(nvert);
+        LXx_VSCL(center, scale);
+        return true;
+    }
+    else
+        return false;
+}
+
+static bool PolygonPlaneMatrix (CLxUser_Mesh& mesh, CLxUser_Polygon& polygon, LXtMatrix m, LXtMatrix m_Inv)
+{
+    LXtVector norm, vec;
+    polygon.Normal(norm);
+
+    LXx_VUNIT(vec, 2);
+    MathUtil::VectorRotation(m, vec, norm);
+    if (m_Inv != nullptr)
+    {
+        lx::MatrixCopy(m_Inv, m);
+        lx::MatrixTranspose(m_Inv);
+    }
+    return true;
+}
+
 }; // MeshUtil
+
+//
+// Polygon plane class to convert the 3D position to 2D position.
+//
+struct PolygonPlane
+{
+    PolygonPlane(CLxUser_Mesh& mesh, CLxUser_Polygon& polygon)
+    {
+        LXtVector vec;
+        polygon.Normal(m_norm);
+
+        LXx_VUNIT(vec, 2);
+        MathUtil::VectorRotation(m_m, vec, m_norm);
+        lx::MatrixCopy(m_mInv, m_m);
+        lx::MatrixTranspose(m_mInv);
+        MeshUtil::PolygonMedianCenter(mesh, polygon, m_center);
+    }
+
+    void ToPlane(const LXtFVector pos, double& x, double& y, double& z)
+    {
+        LXtVector a, b;
+        LXx_VSUB3(a, pos, m_center);
+        lx::MatrixMultiply(b, m_m, a);
+        x = b[0];
+        y = b[1];
+        z = b[2];
+    }
+
+    void ToPlane(const LXtVector pos, double& x, double& y, double& z)
+    {
+        LXtVector a, b;
+        LXx_VSUB3(a, pos, m_center);
+        lx::MatrixMultiply(b, m_m, a);
+        x = b[0];
+        y = b[1];
+        z = b[2];
+    }
+
+    void FromPlane(LXtFVector pos, double x, double y, double z)
+    {
+        LXtVector a, b;
+        a[0] = x;
+        a[1] = y;
+        a[2] = z;
+        lx::MatrixMultiply(b, m_mInv, a);
+        LXx_VADD3(pos, b, m_center);
+    }
+
+    void FromPlane(LXtVector pos, double x, double y, double z)
+    {
+        LXtVector a, b;
+        a[0] = x;
+        a[1] = y;
+        a[2] = z;
+        lx::MatrixMultiply(b, m_mInv, a);
+        LXx_VADD3(pos, b, m_center);
+    }
+
+    LXtMatrix m_m, m_mInv;
+    LXtVector m_norm, m_center;
+};
 

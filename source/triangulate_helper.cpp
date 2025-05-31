@@ -158,15 +158,11 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
     point.fromMesh(m_mesh);
     point1.fromMesh(m_mesh);
 
-    LXtVector norm;
-    polygon.Normal(norm);
-
     CDT cdt;
 
     std::vector<Vertex_handle> vertex_handles;
 
-    // Set axis plane to compute the triangulation on 2D space.
-    AxisPlane axisPlane(norm);
+    PolygonPlane polyPlane(m_mesh, polygon);
 
     std::vector<LXtPointID> source;
     std::unordered_map<LXtPointID,unsigned> indices;
@@ -180,7 +176,8 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
         LXtFVector pos;
         point.Pos(pos);
         double x, y, z;
-        axisPlane.ToPlane(pos, x, y, z);
+        polyPlane.ToPlane(pos, x, y, z);
+        //printf("[%u] input pos %f %f %f x %f y %f z %f\n", i, pos[0], pos[1], pos[2], x, y, z);
         vertex_handles.push_back(cdt.insert(CPoint(x, y)));
         z_ave += z;
     }
@@ -254,7 +251,9 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
         LXtPointID vrt;
         LXtVector  pos;
         auto& p = vertex->point();
-        axisPlane.FromPlane(pos, p.x(), p.y(), z_ave);
+
+        polyPlane.FromPlane(pos, p.x(), p.y(), z_ave);
+        //printf("[%u] output pos %f %f %f x %f y %f z %f\n", index, pos[0], pos[1], pos[2], p.x(), p.y(), z_ave);
         // This interpolates vertex map values at the new position on the source polygon.
         axisTriangles.MakePositionWeights(pos, weights);
         m_poledit.AddFaceVertex(pos, polygon.ID(), weights.data(), &vrt);
