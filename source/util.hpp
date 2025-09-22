@@ -98,6 +98,26 @@ namespace MathUtil {
         CLxMatrix4 m4 = quat.asMatrix();
         m4.getMatrix3x3(m);
     }
+
+    static bool CrossNormal (LXtVector norm, const LXtVector a1, const LXtVector a2, const LXtVector a3)
+    {
+        LXtVector a, b;
+
+        LXx_VSUB3 (a, a1, a2);
+        LXx_VSUB3 (b, a2, a3);
+        LXx_VCROSS (norm, a, b);
+        return lx::VectorNormalize (norm);
+    }
+
+    static bool CrossNormal (LXtFVector norm, const LXtFVector a1, const LXtFVector a2, const LXtFVector a3)
+    {
+        LXtFVector a, b;
+
+        LXx_VSUB3 (a, a1, a2);
+        LXx_VSUB3 (b, a2, a3);
+        LXx_VCROSS (norm, a, b);
+        return lx::VectorNormalize (norm);
+    }
 };
 
 

@@ -41,6 +41,22 @@ typedef CDT::Vertex_handle Vertex_handle;
 typedef CDT::Face_handle Face_handle;
 typedef CDT::Point CPoint;
 
+
+static int TriangleReverse(CLxUser_Point& point, const LXtVector norm, const LXtPointID vert[3])
+{
+    LXtFVector pos[3], vt;
+    for (auto i = 0; i < 3; i++)
+    {
+        point.Select(vert[i]);
+        point.Pos(pos[i]);
+    }
+    MathUtil::CrossNormal(vt, pos[0], pos[1], pos[2]);
+    LXtVector vec;
+    LXx_VCPY(vec, vt);
+    int rev = LXx_VDOT(vec, norm) < 0.0;
+    return rev;
+}
+
 LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
 {
     std::cout << "** ConstraintDelaunay **" << std::endl;
@@ -125,6 +141,8 @@ LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::ve
     }
     assert(static_cast<size_t>(index) == source.size());
 
+    int rev = -1;
+
     // Make triangle face polygons into the edit mesh.
     for (auto face = cdt.finite_faces_begin(); face != cdt.finite_faces_end(); face++)
     {
@@ -139,8 +157,12 @@ LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::ve
             index = vertex_to_index[vh];
             vert[i] = source[index];
         }
+        if (rev == -1)
+        {
+            rev = TriangleReverse(point, norm, vert);
+        }
         // Make a new triangle polygon
-        polygon.NewProto(type, vert, 3, 0, &polyID);
+        polygon.NewProto(type, vert, 3, rev, &polyID);
         tris.push_back(polyID);
     }
 
@@ -157,6 +179,9 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
     CLxUser_Point point, point1;
     point.fromMesh(m_mesh);
     point1.fromMesh(m_mesh);
+
+    LXtVector norm;
+    polygon.Normal(norm);
 
     CDT cdt;
 
@@ -260,6 +285,8 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
         vertices.push_back(vrt);
     }
 
+    int rev = -1;
+
     // Make triangle face polygons into the edit mesh.
     for (auto face = cdt.finite_faces_begin(); face != cdt.finite_faces_end(); face++)
     {
@@ -274,8 +301,12 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
             index = vertex_to_index[vh];
             vert[i] = vertices[index];
         }
+        if (rev == -1)
+        {
+            rev = TriangleReverse(point, norm, vert);
+        }
         // Make a new triangle polygon
-        polygon.NewProto(type, vert, 3, 0, &polyID);
+        polygon.NewProto(type, vert, 3, rev, &polyID);
         tris.push_back(polyID);
     }
 
