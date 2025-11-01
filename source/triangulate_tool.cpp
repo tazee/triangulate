@@ -14,6 +14,7 @@ CTool::CTool()
     static const LXtTextValueHint triangulate_type[] = {
         { ConstraintDelaunay, "constraint" }, 
         { ConformingDelaunay, "conforming" }, 
+        { ConvexPartitioning, "convexPartitioning" }, 
         { 0, "=triangulate_type" }, 0
     };
     static const LXtTextValueHint triangulate_quad[] = {

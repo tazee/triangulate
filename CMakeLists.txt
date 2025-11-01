@@ -68,8 +68,8 @@ if (NOT CGAL_DIR)
 endif()
 
 find_package(CGAL REQUIRED) 
-find_package(GMP REQUIRED)
-find_package(MPFR REQUIRED)
+#find_package(GMP REQUIRED)
+#find_package(MPFR REQUIRED)
 
 message(STATUS "GMP_LIBRARIES: ${GMP_LIBRARIES}")
 message(STATUS "MPFR_LIBRARIES: ${MPFR_LIBRARIES}")

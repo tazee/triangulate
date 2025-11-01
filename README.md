@@ -9,10 +9,13 @@ https://cgal.org
 
 
 <div align="left">
-<img src="./images/love.png" style='max-height: 350px; object-fit: contain'/>
+<img src="images/love.png" style='max-height: 350px; object-fit: contain'/>
 </div>
 <div align="left">
-<img src="./images/conforming.png" style='max-height: 350px; object-fit: contain'/>
+<img src="images/conforming.png" style='max-height: 350px; object-fit: contain'/>
+</div>
+<div align="left">
+<img src="images/convexPartitioning.png" style='max-height: 350px; object-fit: contain'/>
 </div>
 
 
@@ -23,12 +26,13 @@ https://cgal.org
 - The command version of CDT Traingulation can be launched from "Kits" button on Modo UI at right-up. "poly.cdt" command is mapped at "T" button.  
 - The procedural mesh operator version is available on Mesh Operator viewport. That is categorized in Polygon tab.
 <div align="left">
-<img src="./images/kits.png" style='max-height: 220px; object-fit: contain'/>
+<img src="images/kits.png" style='max-height: 220px; object-fit: contain'/>
 </div>
 
 ## Type Option
 - **Constrained Delaunay Triangulations**: force edges into Delaunay triangulation
 - **Conforming Delaunay Triangulations**: add new points into Delaunay triangulation until the edge is present in triangulation
+- **Convex Partitioning**: dived concave polygon into convex polygons. This mode does not support key-hole polygon.
 
 ## Quad Rule
 Quad Rule specifies how to split convex quad polygons.  <bt>

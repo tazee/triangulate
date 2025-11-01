@@ -23,6 +23,9 @@
 
 #include <CGAL/mark_domain_in_triangulation.h>
 
+#include <CGAL/Partition_traits_2.h>
+#include <CGAL/partition_2.h>
+
 #include "triangulate_helper.hpp"
 
 
@@ -59,7 +62,7 @@ static int TriangleReverse(CLxUser_Point& point, const LXtVector norm, const LXt
 
 LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
 {
-    std::cout << "** ConstraintDelaunay **" << std::endl;
+    //std::cout << "** ConstraintDelaunay **" << std::endl;
     CLxUser_Point point, point1;
     point.fromMesh(m_mesh);
     point1.fromMesh(m_mesh);
@@ -130,7 +133,7 @@ LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::ve
     LXtPointID   vert[3];
 
     tris.clear();
-    std::cout << "vertices (" <<  cdt.number_of_vertices() << ") triangles (" << cdt.number_of_faces() << ")" << std::endl;
+    //std::cout << "vertices (" <<  cdt.number_of_vertices() << ") triangles (" << cdt.number_of_faces() << ")" << std::endl;
 
     // Make a map to get index from vertex handle.
     std::unordered_map<Vertex_handle,int> vertex_to_index;
@@ -175,7 +178,7 @@ LxResult TriangulateHelper::ConstraintDelaunay(CLxUser_Polygon& polygon, std::ve
 //
 LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
 {
-    std::cout << "** ConformingDelaunay **" << std::endl;
+    //std::cout << "** ConformingDelaunay **" << std::endl;
     CLxUser_Point point, point1;
     point.fromMesh(m_mesh);
     point1.fromMesh(m_mesh);
@@ -253,7 +256,7 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
     LXtPointID   vert[3];
 
     tris.clear();
-    std::cout << "vertices (" <<  cdt.number_of_vertices() << ") triangles (" << cdt.number_of_faces() << ")" << std::endl;
+    //std::cout << "vertices (" <<  cdt.number_of_vertices() << ") triangles (" << cdt.number_of_faces() << ")" << std::endl;
     m_poledit.SetSearchPolygon(polygon.ID(), true);
 
     AxisTriangles axisTriangles(m_mesh, polygon);
@@ -319,7 +322,7 @@ LxResult TriangulateHelper::ConformingDelaunay(CLxUser_Polygon& polygon, std::ve
 //
 LxResult TriangulateHelper::ModoTriangulation1(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
 {
-    std::cout << "** ModoTriangulation1 **" << std::endl;
+    //std::cout << "** ModoTriangulation1 **" << std::endl;
 
     LXtID4       type = polygon.Type(&type);
     LXtPolygonID polyID;
@@ -348,7 +351,7 @@ LxResult TriangulateHelper::ModoTriangulation1(CLxUser_Polygon& polygon, std::ve
 //
 LxResult TriangulateHelper::ModoTriangulation2(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris)
 {
-    std::cout << "** ModoTriangulation2 **" << std::endl;
+    //std::cout << "** ModoTriangulation2 **" << std::endl;
 
     LXtID4       type = polygon.Type(&type);
     LXtPolygonID polyID;
@@ -377,7 +380,7 @@ LxResult TriangulateHelper::ModoTriangulation2(CLxUser_Polygon& polygon, std::ve
 //
 LxResult TriangulateHelper::Quadrangles(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris, int method)
 {
-    std::cout << "** Quadrangles method = " << method << std::endl;
+    //std::cout << "** Quadrangles method = " << method << std::endl;
 
     LXtID4       type = polygon.Type(&type);
     LXtPolygonID polyID;
@@ -538,4 +541,106 @@ void TriangulateHelper::CopyDiscoValues(CLxUser_Polygon& polygon, std::vector<LX
         }
         delete[] value;
     }
+}
+
+
+typedef CGAL::Partition_traits_2<K>                         Traits;
+typedef Traits::Polygon_2                                   Polygon_2;
+typedef Traits::Point_2                                     Point_2;
+typedef std::list<Polygon_2>                                Polygon_list;
+
+// --- Point_2をキーにするためのハッシュ関数 ---
+struct PointHash {
+    std::size_t operator()(const Point_2& p) const noexcept {
+        std::size_t h1 = std::hash<double>()(p.x());
+        std::size_t h2 = std::hash<double>()(p.y());
+        // シンプルなXOR結合（シード混合）
+        return h1 ^ (h2 << 1);
+    }
+};
+
+// --- Point_2の等価比較関数 ---
+struct PointEq {
+    bool operator()(const Point_2& a, const Point_2& b) const noexcept {
+        // 厳密比較（exact kernelを使う場合はこちらでOK）
+        return a == b;
+    }
+};
+
+static bool Polygon2IsConvex(const Polygon_2& poly)
+{
+    return CGAL::is_convex_2(poly.vertices_begin(), poly.vertices_end());
+}
+
+//
+// Convex partitioning: decompose a polygon into convex polygons
+// using optimal convex partitioning algorithm.
+//
+LxResult TriangulateHelper::ConvexPartitioning(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& pols)
+{
+    //std::cout << "** ConvexPartitioning **" << std::endl;
+    CLxUser_Point point, point1;
+    point.fromMesh(m_mesh);
+    point1.fromMesh(m_mesh);
+
+    LXtVector norm;
+    polygon.Normal(norm);
+
+    // Set axis plane to compute the triangulation on 2D space.
+    AxisPlane axisPlane(norm);
+
+    std::vector<LXtPointID> source;
+    std::unordered_map<LXtPointID,unsigned> indices;
+
+    MeshUtil::MakeVertexTable(polygon, point, source, indices);
+
+    Polygon_2             polygon2;
+    Polygon_list          partitions;
+
+    std::unordered_map<Point_2, unsigned, PointHash, PointEq> point_to_index;
+
+    for (auto i = 0u; i < source.size(); i++)
+    {
+        point.Select(source[i]);
+        LXtFVector pos;
+        point.Pos(pos);
+        double x, y, z;
+        axisPlane.ToPlane(pos, x, y, z);
+        auto p = Point_2(x, y);
+        polygon2.push_back(p);
+        point_to_index[p] = i;
+    }
+
+    if (Polygon2IsConvex(polygon2))
+    {
+        pols.clear();
+        return LXe_OK;
+    }
+
+    // Decompose polygon into convex polygons
+    CGAL::optimal_convex_partition_2(polygon2.vertices_begin(),
+                                    polygon2.vertices_end(),
+                                    std::back_inserter(partitions));
+
+    LXtID4       type;
+    LXtPolygonID polyID;
+    std::vector<LXtPointID>   vert;
+
+    polygon.Type(&type);
+    pols.clear();
+
+    for (const auto& poly : partitions) 
+    {
+        vert.clear();
+        for (const Point_2& p : poly.container())
+        {
+            unsigned index = point_to_index[p];
+            vert.push_back(source[index]);
+        }
+        // Make a new triangle polygon
+        polygon.NewProto(type, vert.data(), static_cast<unsigned>(vert.size()), 0, &polyID);
+        pols.push_back(polyID);
+    }
+
+    return LXe_OK;
 }

@@ -24,6 +24,7 @@ enum TriangulateType : int
 {
     ConstraintDelaunay = 0,
     ConformingDelaunay = 1,
+    ConvexPartitioning = 2,
 };
 
 enum QuadMethod : int
@@ -82,6 +83,12 @@ struct TriangulateHelper
     // Triangulate quadrangles.
     //
     LxResult Quadrangles(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& tris, int method = ShortestDiagonal);
+
+    //
+    // Convex partitioning: decompose a polygon into convex polygons
+    // using optimal convex partitioning algorithm.
+    //
+    LxResult ConvexPartitioning(CLxUser_Polygon& polygon, std::vector<LXtPolygonID>& pols);
 
     CLxUser_Mesh        m_mesh;
     CLxUser_PolygonEdit m_poledit;
@@ -231,12 +238,17 @@ public:
     
         if (!is_valid)
             result = triHelp.ModoTriangulation2(m_poly, tris);
+        else if (m_triType == ConvexPartitioning)
+            result = triHelp.ConvexPartitioning(m_poly, tris);
         else if (m_triType == ConformingDelaunay)
             result = triHelp.ConformingDelaunay(m_poly, tris);
         else if ((nvert == 4) && is_valid)
             result = triHelp.Quadrangles(m_poly, tris, m_quad);
         else if (m_triType == ConstraintDelaunay)
             result = triHelp.ConstraintDelaunay(m_poly, tris);
+
+        if (tris.size() == 0)
+            return LXe_OK;
             
         triHelp.CopyDiscoValues(m_poly, tris);
         
